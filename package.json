@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync-sheets": "node scripts/syncToSheets.js",
+    "setup-sheets": "node scripts/setupSheets.js"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -16,7 +18,9 @@
     "react-router-dom": "^6.20.1",
     "@emailjs/browser": "^4.3.3",
     "jspdf": "^2.5.1",
-    "html2canvas": "^1.4.1"
+    "html2canvas": "^1.4.1",
+    "googleapis": "^128.0.0",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
