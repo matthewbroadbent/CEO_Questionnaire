@@ -3,12 +3,17 @@ import { useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { QuestionnaireResponse, FeedbackData, BenchmarkData } from '../types/questionnaire'
 import NorivaneWordmark from './NorivaneWordmark'
+import { generateEmailParams, sendEmailWithResults } from '../services/emailService'
+import { generatePDFReport } from '../services/pdfService'
 
 const FeedbackPage: React.FC = () => {
   const location = useLocation()
   const responses = location.state?.responses as QuestionnaireResponse
   const [feedback, setFeedback] = useState<FeedbackData | null>(null)
   const [benchmark, setBenchmark] = useState<BenchmarkData | null>(null)
+  const [isEmailSending, setIsEmailSending] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   useEffect(() => {
     if (responses) {
@@ -111,6 +116,45 @@ const FeedbackPage: React.FC = () => {
     return Math.round(score)
   }
 
+  const handleSendEmail = async () => {
+    if (!responses || !feedback || !benchmark || !responses.email) {
+      setEmailError('Missing required information to send email')
+      return
+    }
+
+    setIsEmailSending(true)
+    setEmailError(null)
+
+    try {
+      // Generate PDF report
+      const readinessScore = getReadinessScore(responses)
+      const pdfDataUri = await generatePDFReport(responses, feedback, benchmark, readinessScore)
+      
+      // Generate email parameters
+      const emailParams = generateEmailParams(responses, feedback, benchmark, readinessScore)
+      
+      // Add PDF as attachment (base64 encoded)
+      const emailParamsWithPdf = {
+        ...emailParams,
+        pdf_attachment: pdfDataUri
+      }
+
+      // Send email
+      const success = await sendEmailWithResults(emailParamsWithPdf)
+      
+      if (success) {
+        setEmailSent(true)
+      } else {
+        setEmailError('Failed to send email. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error sending email:', error)
+      setEmailError('An error occurred while sending the email. Please try again.')
+    } finally {
+      setIsEmailSending(false)
+    }
+  }
+
   if (!feedback || !benchmark) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -140,6 +184,66 @@ const FeedbackPage: React.FC = () => {
           >
             <h1 className="feedback-title">Your AI Strategy Report</h1>
             <h2 className="feedback-subtitle">{feedback.subtitle}</h2>
+            
+            {/* Email Delivery Section */}
+            {responses.email && !emailSent && (
+              <div style={{ 
+                background: '#f8f9fa', 
+                padding: '1.5rem', 
+                borderRadius: '12px',
+                marginBottom: '2rem',
+                border: '2px solid #00B2A9'
+              }}>
+                <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: '#0A2342' }}>
+                  📧 Get Your Complete Report
+                </h3>
+                <p style={{ marginBottom: '1rem' }}>
+                  We'll send a comprehensive PDF report with detailed analysis and personalized recommendations to <strong>{responses.email}</strong>
+                </p>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isEmailSending}
+                  style={{
+                    backgroundColor: isEmailSending ? '#ccc' : '#00B2A9',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: isEmailSending ? 'not-allowed' : 'pointer',
+                    transition: 'background-color 0.3s'
+                  }}
+                >
+                  {isEmailSending ? 'Sending Report...' : 'Send My Complete Report'}
+                </button>
+                {emailError && (
+                  <p style={{ color: '#dc3545', marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                    {emailError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Success Message */}
+            {emailSent && (
+              <div style={{ 
+                background: '#d4edda', 
+                color: '#155724',
+                padding: '1.5rem', 
+                borderRadius: '12px',
+                marginBottom: '2rem',
+                border: '2px solid #c3e6cb'
+              }}>
+                <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>
+                  ✅ Report Sent Successfully!
+                </h3>
+                <p style={{ margin: 0 }}>
+                  Your comprehensive AI strategy report has been sent to <strong>{responses.email}</strong>. 
+                  Check your inbox for detailed analysis and personalized recommendations.
+                </p>
+              </div>
+            )}
             
             {/* Readiness Score */}
             <div style={{ 
